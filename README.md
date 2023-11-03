@@ -25,8 +25,8 @@ gpu_mem=128
 ### 3. PyTorch und OpenCV installieren
 
 ```
-pip install torch torchvision torchaudio
-pip install opencv-python
+pip install torch==1.10.2 torchvision==0.11.2 torchaudio==0.10.1
+pip install opencv-python==4.5.5.64
 pip install numpy --upgrade
 ```
 
