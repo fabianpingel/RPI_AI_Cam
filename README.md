@@ -41,3 +41,27 @@ python -c "import torch; print(torch.__version__)"
 sudo apt update
 sudo apt install code
 ```
+
+[SWAP File](https://pimylifeup.com/raspberry-pi-swap-file/) vergrößern
+```
+# stop the operating system from using the current swap file
+sudo dphys-swapfile swapoff
+# open swapfile using nano 
+sudo nano /etc/dphys-swapfile
+```
+```
+# modify the numerical value (in megabytes)
+CONF_SWAPSIZE=4096
+```
+```
+# re-initialize the RPi’s swap file 
+sudo dphys-swapfile setup
+# turn the swap back on
+sudo dphys-swapfile swapon
+# restart
+sudo reboot
+```
+
+
+
+
