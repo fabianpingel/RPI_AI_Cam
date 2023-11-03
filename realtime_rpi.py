@@ -4,19 +4,22 @@ import torch
 import numpy as np
 from torchvision import models, transforms
 
+from utils import classes
+
 import cv2
 from PIL import Image
 
-#print(f'[DEBUG]: Imports erfolgreich...')
+print(f'[INFO]: Imports erfolgreich...')
+print(f'[INFO]: Versionsinfos: torch={torch.__version__}, opencv={cv2.__version__}')
 
 torch.backends.quantized.engine = 'qnnpack'
 
 cap = cv2.VideoCapture(0, cv2.CAP_V4L2)
 cap.set(cv2.CAP_PROP_FRAME_WIDTH, 224)
 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 224)
-cap.set(cv2.CAP_PROP_FPS, 10) #36
+cap.set(cv2.CAP_PROP_FPS, 36)
 
-#print(f'[DEBUG]: Kamera erkannt...')
+print(f'[INFO]: Kamera erkannt...')
 
 preprocess = transforms.Compose([
     transforms.ToTensor(),
@@ -24,13 +27,11 @@ preprocess = transforms.Compose([
 ])
 
 # Anzahl nutzbarer Kerne festlegen
-#torch.set_num_threads(2)
+torch.set_num_threads(3)
 
 
-#net = models.quantization.mobilenet_v2(pretrained=True, quantize=True) # deprecated
-#net = models.quantization.mobilenet_v2(weights='MobileNet_V2_Weights.IMAGENET1K_V2', quantize=True)
-net = models.mobilenet_v2(weights='MobileNet_V2_Weights.IMAGENET1K_V2')
-#print(f'[DEBUG]: Netz geladen...')
+net = models.quantization.mobilenet_v2(pretrained=True, quantize=True) # deprecated
+print(f'[INFO]: Netz geladen...')
 # jit model to take it from ~20fps to ~30fps
 net = torch.jit.script(net)
 
@@ -52,16 +53,18 @@ with torch.no_grad():
         # preprocess
         input_tensor = preprocess(image)
 
-        #print(f'[DEBUG]: bis hierhin ok..')
-
         # create a mini-batch as expected by the model
         input_batch = input_tensor.unsqueeze(0)
-        print(f'[INFO]: Input shape {input_batch.shape}')
-        print(f'[DEBUG]: bis hierhin ok..')
+        #print(f'[DEBUG]: Input shape {input_batch.shape}')
 
         # run model
         output = net(input_batch)
+
         # do something with output ...
+        top = list(enumerate(output[0].softmax(dim=0)))
+        top.sort(key=lambda x: x[1], reverse=True)
+        for idx, val in top[:10]:
+            print(f"{val.item()*100:.2f}% {classes[idx]}")
 
         # log model performance
         frame_count += 1
