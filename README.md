@@ -5,6 +5,12 @@ Grundlage ist das verlinkte [PyTorch-Tutorial](https://pytorch.org/tutorials/int
 ## Installation
 ### 1. [RPI Imager](https://www.raspberrypi.com/software/) downloaden: [RPI OS 64bit](https://www.raspberrypi.com/software/operating-systems/) *bullseye* wählen.
 ### 2. Kamera aktivieren
+Sobald das System hochgefahren und die Ersteinrichtung abgeschlossen ist, muss die Datei `/boot/config.txt` bearbeitet werden, um die Kamera zu aktivieren.
+```
+sudo nano /boot/config.txt
+```
+
+
 ```
 # This enables the extended features such as the camera.
 start_x=1
@@ -19,14 +25,14 @@ gpu_mem=128
 ### 3. PyTorch und OpenCV installieren
 
 ```
-$ pip install torch torchvision torchaudio
-$ pip install opencv-python
-$ pip install numpy --upgrade
+pip install torch torchvision torchaudio
+pip install opencv-python
+pip install numpy --upgrade
 ```
 
 Versionen testen: 
 ```
-$ python -c "import torch; print(torch.__version__)"
+python -c "import torch; print(torch.__version__)"
 ```
 
 ### 4. Optional
