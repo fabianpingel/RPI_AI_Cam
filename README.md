@@ -29,3 +29,9 @@ Versionen testen:
 $ python -c "import torch; print(torch.__version__)"
 ```
 
+### 4. Optional
+[Visual Studio Code](https://code.visualstudio.com/docs/setup/raspberry-pi) installieren
+```
+sudo apt update
+sudo apt install code
+```
