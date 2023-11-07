@@ -1,4 +1,5 @@
-# RPI_AI_Cam
+# RPI_AI_Cam 
+🚧 UNDER CONSTRUCTION!!!
 
 Grundlage ist das verlinkte [PyTorch-Tutorial](https://pytorch.org/tutorials/intermediate/realtime_rpi.html)
 
