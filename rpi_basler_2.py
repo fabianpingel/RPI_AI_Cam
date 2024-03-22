@@ -17,27 +17,46 @@ print(f'[INFO] OpenCV Version: {cv2.__version__}')
 class BaslerCamera:
     def __init__(self):
         self.cam = None
-        self.exposure_time = exposure_time
-        self.pixel_format = pixel_format
+        # get instance of the pylon TransportLayerFactory
+        self.tlf = py.TlFactory.GetInstance()
+        # Device Info
+        self.devices = self.tlf.EnumerateDevices()
+        print(f'[INFO] Baslerkamera(s) gefunden:')
+        for idx, d in enumerate(self.devices):
+            print(f'{idx}: ModelName: {d.GetModelName()}, SerialNumber: {d.GetSerialNumber()}')
         # Kamera suchen
-        self.info = pylon.DeviceInfo()
+        self.info = py.DeviceInfo()
         self.image = None
 
+
     def initialize(self):
-        self.cam = py.InstantCamera(py.TlFactory.GetInstance().CreateFirstDevice(self.info))
-        # Kamera öffnen
+        # the active camera will be an InstantCamera based on a device
+        self.cam = py.InstantCamera(self.tlf.CreateFirstDevice(self.info)) # created with the helper method to get the FirstDevice from an enumeration
+        #self.cam = py.InstantCamera(self.tlf.CreateDevice(self.devices[0]))     # created with the corresponding DeviceInfo
+
+        # Kamera öffnen 
+        # the features of the device are only accessable after Opening the device
         self.cam.Open()
+        # to get consistant results it is always good to start from "power-on" state
+        # reset to power on defaults
+        self.cam.UserSetSelector.SetValue(self.cam.UserSetDefault.Value)
+        self.cam.UserSetLoad.Execute()
         # Kameraeinstellungen konfigurieren (z.B. Auflösung, Belichtungszeit usw.)
-        self.cam.PixelFormat = "BGR8"
-        self.cam.ExposureTime = 10000 # Belichtungszeit (in Mikrosekunden)
-        self.cam.Width.Value = 640
-        self.cam.Height.Value = 480
+        self.cam.PixelFormat.Value = "BGR8"
+        self.cam.ExposureTime.Value = 10000 # Belichtungszeit (in Mikrosekunden)
+        #self.cam.ExposureTime = self.cam.ExposureTime.Min
+        self.cam.Width.Value = self.cam.Width.Max # 1280
+        self.cam.Height.Value = self.cam.Height.Max # 1024
+        # show expected framerate max framerate ( @ defined exposure time)
+        print(f'FPS: {self.cam.ResultingFrameRate.Value}')
+        # leeres Bild erstellen
+        self.image = np.zeros((self.cam.Height.Value, self.cam.Width.Value), dtype=np.uint16)
         
 
     def start_grabbing(self):
         # Kamera streamen
-        self.cam.StartGrabbing()
-        #self.cam.StartGrabbing(pylon.GrabStrategy_LatestImageOnly)
+        #self.cam.StartGrabbing() # hierbei bleiben Bilder im Puffer
+        self.cam.StartGrabbing(py.GrabStrategy_LatestImageOnly)
 
     def grab_frame(self):
         grab_result = self.cam.RetrieveResult(5000, py.TimeoutHandling_ThrowException)
@@ -66,7 +85,16 @@ class App:
         cv2.namedWindow(self.window_name)
         # Callback für Mausereignisse registrieren
         cv2.setMouseCallback(self.window_name, self.mouse_callback)
+        # Ordner für Bilder erstellen
+        self.create_folder()
 
+    def create_folder(self):
+        self.folder_name = 'images_' + time.strftime('%Y-%m-%d_%H-%M')
+        path = os.path.join(os.getcwd(), self.folder_name) 
+        print(path)
+        if not os.path.exists(path):
+            os.makedirs(path)
+            print('Ordner erstellt')
 
     # Callback-Funktion für Mausereignisse
     def mouse_callback(self, event, x, y, flags, param):
@@ -122,15 +150,13 @@ class App:
 
         # UI mit Livebild und Buttons anzeigen
         cv2.imshow(self.window_name, image)
-        
-        # Aktuelles Kamerabild speichern
-        if self.save_img:
+
         # Speichern des Bildes, wenn der "Run"-Button gedrückt wird
         if self.save_img:
             prefix = 'IO' if self.io_state else 'NIO'
             timestamp = time.strftime('%Y-%m-%d_%H-%M-%S')
             img_name = f'{prefix}_{timestamp}_{self.counter}.jpg'
-            img_path = os.path.join(os.getcwd(), img_name)
+            img_path = os.path.join(self.folder_name, img_name)
             cv2.imwrite(img_path, self.cam.image)
             print('Bild gespeichert:', img_path)
             self.counter -= 1
@@ -144,6 +170,7 @@ class App:
         self.cam.start_grabbing()
         # Schleife für die kontinuierliche Anzeige der UI und des Webcam-Bildes
         while True:
+        #while self.cam.IsGrabbing():
             # Frame von der Kamera erfassen
             self.cam.grab_frame()
             self.draw_ui()
@@ -151,10 +178,8 @@ class App:
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
             # Option hinzu, um Fenster am Touchbildschirm ohne Tastatur zu schließen
-            if cv2.getWindowProperty(window_name, cv2.WND_PROP_AUTOSIZE) == -1:
+            if cv2.getWindowProperty(self.window_name, cv2.WND_PROP_AUTOSIZE) == -1:
                 break
-            # Aktuelles Kamerabild speichern
-            if self.save_img:
                 
         # Kamera freigeben und alle Fenster schließen
         self.cam.release()
@@ -176,14 +201,14 @@ def main():
     print(f'[INFO] {opt}')
     
     # Pylon initialisieren
-    py.PylonInitialize()
+    #py.PylonInitialize()
     
     # App starten
     app = App()
     app.run()      
     
     # Pylon beenden
-    py.PylonTerminate()
+    #py.PylonTerminate()
 
 
 if __name__ == '__main__':
