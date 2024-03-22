@@ -9,6 +9,10 @@ import argparse
 import pypylon.pylon as py
 import os
 import time
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 print(f'[INFO] OpenCV Version: {cv2.__version__}')
@@ -21,9 +25,9 @@ class BaslerCamera:
         self.tlf = py.TlFactory.GetInstance()
         # Device Info
         self.devices = self.tlf.EnumerateDevices()
-        print(f'[INFO] Baslerkamera(s) gefunden:')
+        logger.info(f'[INFO] Baslerkamera(s) gefunden:')
         for idx, d in enumerate(self.devices):
-            print(f'{idx}: ModelName: {d.GetModelName()}, SerialNumber: {d.GetSerialNumber()}')
+            logger.info(f'{idx}: ModelName: {d.GetModelName()}, SerialNumber: {d.GetSerialNumber()}')
         # Kamera suchen
         self.info = py.DeviceInfo()
         self.image = None
@@ -48,7 +52,7 @@ class BaslerCamera:
         self.cam.Width.Value = self.cam.Width.Max # 1280
         self.cam.Height.Value = self.cam.Height.Max # 1024
         # show expected framerate max framerate ( @ defined exposure time)
-        print(f'FPS: {self.cam.ResultingFrameRate.Value}')
+        logger.info(f'FPS: {self.cam.ResultingFrameRate.Value}')
         # leeres Bild erstellen
         self.image = np.zeros((self.cam.Height.Value, self.cam.Width.Value), dtype=np.uint16)
         
@@ -74,9 +78,35 @@ class BaslerCamera:
 
 
 
+class Webcam:
+    def __init__(self, source=0):
+        self.cam = None
+        self.source = source
+        logger.info(f'Verbinde Webcam: {self.source}')
+
+    def initialize(self):
+        self.cam = cv2.VideoCapture(self.source)
+        if not self.cam.isOpened():
+            logger.error(f"Kameraquelle '{self.source}' kann nicht geöffnet werden")
+
+    def start_grabbing(self):
+        pass  # Nicht benötigt für Webcam
+
+    def grab_frame(self):
+        ret, frame = self.cam.read()
+        if ret:
+            return frame
+        return None
+
+    def release(self):
+        self.cam.release()
+
+
+
 class App:
-    def __init__(self):
-        self.cam = BaslerCamera()
+    def __init__(self, source):
+        # Kameraquelle
+        self.cam = BaslerCamera() if source.lower() == 'basler' else Webcam(source)
         self.window_name = "UI mit OpenCV"
         self.io_state = False
         self.save_img = False
@@ -87,6 +117,8 @@ class App:
         cv2.setMouseCallback(self.window_name, self.mouse_callback)
         # Ordner für Bilder erstellen
         self.create_folder()
+        # Zeitstempel für die letzte Bildspeicherung
+        self.last_save_time = time.time()  
 
     def create_folder(self):
         self.folder_name = 'images_' + time.strftime('%Y-%m-%d_%H-%M')
@@ -94,7 +126,7 @@ class App:
         print(path)
         if not os.path.exists(path):
             os.makedirs(path)
-            print('Ordner erstellt')
+            logger.info(f"Ordner erstellt: {path}")
 
     # Callback-Funktion für Mausereignisse
     def mouse_callback(self, event, x, y, flags, param):
@@ -103,11 +135,11 @@ class App:
                 # IO Button
                 if x < self.cam.image.shape[1] // 3:
                     self.io_state = True
-                    print("IO Button wurde gedrückt - IO Status ändern")
+                    logger.info("IO Button wurde gedrückt - IO Status ändern")
                 # NIO Button
                 elif self.cam.image.shape[1] // 3 <= x < 2 * self.cam.image.shape[1] // 3:
                     self.io_state = False
-                    print("NIO Button wurde gedrückt - IO Status auf False setzen")
+                    logger.info("NIO Button wurde gedrückt - IO Status auf False setzen")
                 # Run Button
                 else:
                     self.save_img = True
@@ -153,15 +185,24 @@ class App:
 
         # Speichern des Bildes, wenn der "Run"-Button gedrückt wird
         if self.save_img:
-            prefix = 'IO' if self.io_state else 'NIO'
-            timestamp = time.strftime('%Y-%m-%d_%H-%M-%S')
-            img_name = f'{prefix}_{timestamp}_{self.counter}.jpg'
-            img_path = os.path.join(self.folder_name, img_name)
-            cv2.imwrite(img_path, self.cam.image)
-            print('Bild gespeichert:', img_path)
-            self.counter -= 1
-            if self.counter <= 0:
-                self.save_img = False
+            current_time = time.time()
+            if current_time - self.last_save_time >= 1:  # Prüfe, ob 1 Sekunde vergangen ist
+                self.save_image()
+                self.last_save_time = current_time
+  
+            
+    def save_image(self):
+        prefix = 'IO' if self.io_state else 'NIO'  # IO / NIO Prefix 
+        timestamp = time.strftime('%Y-%m-%d_%H-%M-%S')  # Zeitstempel
+        img_name = f'{prefix}_{timestamp}_{self.counter}.jpg'  # Bildname
+        img_path = os.path.join(self.folder_name, img_name)  # Bildpfad
+        # Bild speichern
+        cv2.imwrite(img_path, self.cam.image) 
+        logger.info(f'Bild gespeichert:' {img_path})
+        self.counter -= 1
+        if self.counter <= 0:
+            self.save_img = False
+
 
 
     def run(self):
@@ -189,7 +230,7 @@ class App:
 
 def make_parser():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--source', type=int, default=0, help="cam-source '0' for wecbam 'basler' for Basler cam") 
+    parser.add_argument('--source', default='0', help="Kameraquelle: '0' für Webcam, 'basler' für Basler-Kamera")
     return parser
 
 
@@ -204,7 +245,7 @@ def main():
     #py.PylonInitialize()
     
     # App starten
-    app = App()
+    app = App(opt.source)
     app.run()      
     
     # Pylon beenden
