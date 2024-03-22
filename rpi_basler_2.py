@@ -54,7 +54,7 @@ class BaslerCamera:
         # show expected framerate max framerate ( @ defined exposure time)
         logger.info(f'FPS: {self.cam.ResultingFrameRate.Value}')
         # leeres Bild erstellen
-        self.image = np.zeros((self.cam.Height.Value, self.cam.Width.Value), dtype=np.uint16)
+        self.image = np.zeros((self.cam.Height.Value, self.cam.Width.Value, 3), dtype=np.uint16)
         
 
     def start_grabbing(self):
@@ -83,11 +83,16 @@ class Webcam:
         self.cam = None
         self.source = source
         logger.info(f'Verbinde Webcam: {self.source}')
+        self.image = None
 
     def initialize(self):
         self.cam = cv2.VideoCapture(self.source)
         if not self.cam.isOpened():
             logger.error(f"Kameraquelle '{self.source}' kann nicht geöffnet werden")
+        self.cam_Width = 1280
+        self.cam_Height = 1024
+        # leeres Bild erstellen
+        self.image = np.zeros((self.cam_Height, self.cam_Width, 3), dtype=np.uint16)
 
     def start_grabbing(self):
         pass  # Nicht benötigt für Webcam
@@ -95,6 +100,7 @@ class Webcam:
     def grab_frame(self):
         ret, frame = self.cam.read()
         if ret:
+            self.cam_Width, self.cam_Height = frame.shape[:2]
             return frame
         return None
 
@@ -178,13 +184,15 @@ class App:
         # Text für die Buttons hinzufügen
         cv2.putText(image, 'IO', (50, self.cam.image.shape[0] + 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2)
         cv2.putText(image, 'NIO', (self.cam.image.shape[1] // 3 + 30, self.cam.image.shape[0] + 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
-        cv2.putText(image, 'Run', (2 * self.cam.image.shape[1] // 3 + 30, self.cam.image.shape[0] + 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2)
+        cv2.putText(image, 'Save', (2 * self.cam.image.shape[1] // 3 + 30, self.cam.image.shape[0] + 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2)
 
         # UI mit Livebild und Buttons anzeigen
         cv2.imshow(self.window_name, image)
 
         # Speichern des Bildes, wenn der "Run"-Button gedrückt wird
         if self.save_img:
+            # Text für Benutzer
+            cv2.putText(image, 'saving', (self.cam.image.shape[1] // 2 - 30, self.cam.image.shape[0] - 60), cv2.FONT_HERSHEY_SIMPLEX, 10, (0, 0, 0), 2)
             current_time = time.time()
             if current_time - self.last_save_time >= 1:  # Prüfe, ob 1 Sekunde vergangen ist
                 self.save_image()
@@ -198,7 +206,7 @@ class App:
         img_path = os.path.join(self.folder_name, img_name)  # Bildpfad
         # Bild speichern
         cv2.imwrite(img_path, self.cam.image) 
-        logger.info(f'Bild gespeichert:' {img_path})
+        logger.info(f'Bild gespeichert: {img_path}')
         self.counter -= 1
         if self.counter <= 0:
             self.save_img = False
@@ -230,7 +238,7 @@ class App:
 
 def make_parser():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--source', default='0', help="Kameraquelle: '0' für Webcam, 'basler' für Basler-Kamera")
+    parser.add_argument('--source', default='basler', help="Kameraquelle: '0' für Webcam, 'basler' für Basler-Kamera")
     return parser
 
 
