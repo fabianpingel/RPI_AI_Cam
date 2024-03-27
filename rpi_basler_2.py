@@ -222,7 +222,9 @@ class App:
         # App
         self.window_name = "UI mit OpenCV"
         # Fensternamen zuweisen
-        cv2.namedWindow(self.window_name)
+        cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL)
+        cv2.setWindowProperty(self.window_name, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+        print(cv2.getWindowProperty(self.window_name, cv2.WND_PROP_FULLSCREEN))
         # Callback für Mausereignisse registrieren
         cv2.setMouseCallback(self.window_name, self.mouse_callback)
 
@@ -363,7 +365,7 @@ class App:
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
             # Option hinzu, um Fenster am Touchbildschirm ohne Tastatur zu schließen
-            if cv2.getWindowProperty(self.window_name, cv2.WND_PROP_AUTOSIZE) == -1:
+            if cv2.getWindowProperty(self.window_name, cv2.WND_PROP_VISIBLE) < 1:
                 break
 
         # Kamera freigeben und alle Fenster schließen
