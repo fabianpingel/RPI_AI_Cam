@@ -1,0 +1,64 @@
+def mouse_callback(self, event, x, y, flags, param):
+    if event == cv2.EVENT_LBUTTONDOWN:
+        if x > self.cam.image.shape[1]:  # width
+            # IO Button
+            if y < self.cam.image.shape[0] // 3:
+                self.io_state = True
+                logger.info("IO Button wurde gedrückt - IO Status ändern")
+            # NIO Button
+            elif self.cam.image.shape[0] // 3 <= y < 2 * self.cam.image.shape[0] // 3:
+                self.io_state = False
+                logger.info("NIO Button wurde gedrückt - IO Status auf False setzen")
+            # Save Button
+            else:
+                self.save_img = True
+                self.img_counter = self.num_images_to_save
+                logger.info("Save Button wurde gedrückt - Prozess starten")
+
+            # UI neu zeichnen, um den aktualisierten Zustand des Buttons anzuzeigen
+            self.draw_ui()
+
+
+
+def draw_ui(self):
+    # leeres bild erstellen
+    image = np.ones((self.cam.image.shape[0], self.cam.image.shape[1] + 300, 3), dtype=np.uint8) * 255
+
+    # Kamerabild einfügen
+    image[0:self.cam.image.shape[0], 0:self.cam.image.shape[1]] = self.cam.image
+
+    # Farben für die Buttons definieren
+    io_color = (0, 255, 0)  # Grün
+    nio_color = (0, 0, 255)  # Rot
+    run_color = (0, 255, 255)  # Gelb
+
+    # Farben je nach Zustand der Buttons anpassen
+    if self.io_state:
+        io_color = (0, 200, 0)  # Dunkleres Grün
+        nio_color = (128, 128, 128)  # Grau für NIO Button
+    if not self.io_state:
+        io_color = (128, 128, 128)  # Grau für IO Button
+        nio_color = (0, 0, 200)  # Dunkleres Rot
+
+    # Buttons zeichnen
+    cv2.rectangle(image, (self.cam.image.shape[1], 0),
+                  (self.cam.image.shape[1] + 100, self.cam.image.shape[0] // 3), io_color, -1)
+    cv2.rectangle(image, (self.cam.image.shape[1], self.cam.image.shape[0] // 3),
+                  (self.cam.image.shape[1] + 100, 2 * self.cam.image.shape[0] // 3), nio_color, -1)
+    cv2.rectangle(image, (self.cam.image.shape[1], 2 * self.cam.image.shape[0] // 3),
+                  (self.cam.image.shape[1] + 100, self.cam.image.shape[0]), run_color, -1)
+
+    # Text für die Buttons hinzufügen
+    cv2.putText(image, 'IO', (self.cam.image.shape[1] + 20, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2)
+    cv2.putText(image, 'NIO', (self.cam.image.shape[1] + 20, self.cam.image.shape[0] // 2), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+    cv2.putText(image, 'Save', (self.cam.image.shape[1] + 20, self.cam.image.shape[0] - 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2)
+
+    # UI mit Livebild und Buttons anzeigen
+    cv2.imshow(self.window_name, image)
+
+    # Speichern des Bildes, wenn der "Save"-Button gedrückt wird
+    if self.save_img:
+        current_time = time.time()
+        if current_time - self.last_save_time >= self.save_interval:  # Prüfe, ob das Intervall erreicht wurde
+            self.save_image()
+            self.last_save_time = current_time
