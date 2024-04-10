@@ -170,6 +170,11 @@ class Webcam:
         self.image = None
         self.cam_Width = None
         self.cam_Height = None
+        # Logging
+        self.logger = logging.getLogger(__name__)
+        self.logger.setLevel(level=logging.INFO)
+
+
 
     def initialize(self):
         """
@@ -177,7 +182,7 @@ class Webcam:
         """
         self.cam = cv2.VideoCapture(self.source)
         if not self.cam.isOpened():
-            logger.error(f" Kameraquelle '{self.source}' kann nicht geöffnet werden")
+            self.logger.error(f" Kameraquelle '{self.source}' kann nicht geoeffnet werden")
             exit()
         else:
             # Das erste Bild erfassen
@@ -186,7 +191,7 @@ class Webcam:
                 self.cam_Width, self.cam_Height = frame.shape[1], frame.shape[0]
                 self.image = frame
             else:
-                logger.error(f" Kann kein erstes Bild von der Kamera {self.source} erhalten.")
+                self.logger.error(f" Kann kein erstes Bild von der Kamera {self.source} erhalten.")
                 exit()
 
 
@@ -223,8 +228,9 @@ class App:
         self.window_name = "UI mit OpenCV"
         # Fensternamen zuweisen
         cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL)
-        cv2.setWindowProperty(self.window_name, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
-        print(cv2.getWindowProperty(self.window_name, cv2.WND_PROP_FULLSCREEN))
+        #cv2.setWindowProperty(self.window_name, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+        cv2.setWindowProperty(self.window_name, cv2.WND_PROP_AUTOSIZE, cv2.WND_PROP_AUTOSIZE)
+        logger.debug(cv2.getWindowProperty(self.window_name, cv2.WND_PROP_FULLSCREEN))
         # Callback für Mausereignisse registrieren
         cv2.setMouseCallback(self.window_name, self.mouse_callback)
 
@@ -258,28 +264,32 @@ class App:
     # Callback-Funktion für Mausereignisse
     def mouse_callback(self, event, x, y, flags, param):
         if event == cv2.EVENT_LBUTTONDOWN:
-            if y > self.cam.image.shape[0]:  # height
-                # IO Button
-                if x < self.cam.image.shape[1] // 3:
-                    self.io_state = True
-                    logger.info(f" IO Button wurde gedrückt - IO Status ändern")
-                # NIO Button
-                elif self.cam.image.shape[1] // 3 <= x < 2 * self.cam.image.shape[1] // 3:
-                    self.io_state = False
-                    logger.info(f" NIO Button wurde gedrückt - IO Status auf False setzen")
-                # Run Button
-                else:
-                    self.save_img = True
-                    self.img_counter = self.num_images_to_save
-                    logger.info(f" Run Button wurde gedrückt - Prozess starten")
+            if x > self.cam.image.shape[1]:  # width
+                if y > 60: # Text Bauteilzustand
+                    # IO Button
+                    if y < 200:
+                        self.io_state = True
+                        logger.info("IO Button wurde gedrückt - IO Status ändern")
+                    # NIO Button
+                    elif 200 <= y < 340:
+                        self.io_state = False
+                        logger.info("NIO Button wurde gedrückt - IO Status auf False setzen")
+                    # Save Button
+                    else:
+                        self.save_img = True
+                        self.img_counter = self.num_images_to_save
+                        logger.info("Save Button wurde gedrückt - Prozess starten")
 
                 # UI neu zeichnen, um den aktualisierten Zustand des Buttons anzuzeigen
                 self.draw_ui()
 
+
     # Funktion zum Zeichnen der UI mit aktuellem Status der Buttons und Livebild der Kamera
     def draw_ui(self):
-        # leeres bild erstellen
-        image = np.ones((self.cam.image.shape[0] + 100, self.cam.image.shape[1], 3), dtype=np.uint8) * 255
+        # leeres Bild erstellen
+        # Auflösung RPI Touch Bildschirm 800 x 480 Pixel, d.h. bei Standardbild von Kamera (640x480) fehlen 160 Pixel in der Breite
+        add_width = 160
+        image = np.ones((self.cam.image.shape[0], self.cam.image.shape[1] + add_width, 3), dtype=np.uint8) * 255 # height, width, channels
         # Kamerabild einfügen
         image[0:self.cam.image.shape[0], 0:self.cam.image.shape[1]] = self.cam.image
 
@@ -295,21 +305,27 @@ class App:
         if not self.io_state:
             io_color = (128, 128, 128)  # Grau für IO Button
             nio_color = (0, 0, 200)  # Dunkleres Rot
-
+       
         # Buttons zeichnen
-        cv2.rectangle(image, (0, self.cam.image.shape[0]),
-                      (self.cam.image.shape[1] // 3, self.cam.image.shape[0] + 100), io_color, -1)
-        cv2.rectangle(image, (self.cam.image.shape[1] // 3, self.cam.image.shape[0]),
-                      (2 * self.cam.image.shape[1] // 3, self.cam.image.shape[0] + 100), nio_color, -1)
-        cv2.rectangle(image, (2 * self.cam.image.shape[1] // 3, self.cam.image.shape[0]),
-                      (self.cam.image.shape[1], self.cam.image.shape[0] + 100), run_color, -1)
+        # Konstanten für vertikale Bildunterteilung (y-Koordinate = Bildhöhe max 480 pixel)
+        y1 = 60
+        y2 = 200
+        y3 = 340
+
+        cv2.rectangle(image, (self.cam.image.shape[1], 0),
+                    (self.cam.image.shape[1] + add_width, y1), (255,0,0), -1)
+        cv2.putText(image, 'Bauteil ist: ', (self.cam.image.shape[1] + 10, 35), cv2.FONT_HERSHEY_SIMPLEX, .75, (0, 0, 0), 2)
+        cv2.rectangle(image, (self.cam.image.shape[1], y1),
+                    (self.cam.image.shape[1] + add_width, y2), io_color, -1)
+        cv2.rectangle(image, (self.cam.image.shape[1], y2),
+                    (self.cam.image.shape[1] + add_width, y3), nio_color, -1)
+        cv2.rectangle(image, (self.cam.image.shape[1], y3),
+                    (self.cam.image.shape[1] + add_width, self.cam.image.shape[0]), run_color, -1)
 
         # Text für die Buttons hinzufügen
-        cv2.putText(image, 'IO', (50, self.cam.image.shape[0] + 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2)
-        cv2.putText(image, 'NIO', (self.cam.image.shape[1] // 3 + 30, self.cam.image.shape[0] + 60),
-                    cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
-        cv2.putText(image, 'Save', (2 * self.cam.image.shape[1] // 3 + 30, self.cam.image.shape[0] + 60),
-                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2)
+        cv2.putText(image, 'IO', (self.cam.image.shape[1] + 20, y2 - 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2)
+        cv2.putText(image, 'NIO', (self.cam.image.shape[1] + 20, y3 - 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+        cv2.putText(image, 'Save', (self.cam.image.shape[1] + 20, self.cam.image.shape[0] - 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2)
 
 
         # Speichern des Bildes, wenn der "Run"-Button gedrückt wird
@@ -328,6 +344,7 @@ class App:
 
         # UI mit Livebild und Buttons anzeigen
         cv2.imshow(self.window_name, image)
+
 
     def save_image(self):
         if self.save_img:  # Überprüfen, ob das Speichern von Bildern aktiviert ist
@@ -389,7 +406,7 @@ def make_parser():
     # Befehlszeilenargumente hinzufügen
     parser.add_argument('--source', default='0', help="Kameraquelle: '0' für Webcam, 'basler' für Basler-Kamera")
     parser.add_argument('--speed', type=int, default=20, help="Umdrehungsgeschwindigkeit des Drehtellers in U/min")
-    parser.add_argument('--num_images_to_save', type=int, default=3, help="Anzahl der zu speichernden Bilder")
+    parser.add_argument('--num_images_to_save', type=int, default=3, help="Anzahl der zu speichernden Bilder pro Umdrehung")
     parser.add_argument('--part_number', type=str, default='XXXXX', help="Artikelbezeichnung des Bauteils")
 
     return parser
