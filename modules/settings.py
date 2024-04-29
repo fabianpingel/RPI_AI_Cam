@@ -1,0 +1,5 @@
+# GPIO PIN Belegung
+
+GPIO_PIN_MOTOR = 22
+GPIO_PIN_LEUCHTE = 27
+
