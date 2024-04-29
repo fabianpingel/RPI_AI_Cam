@@ -10,7 +10,7 @@ from modules.app import App
 
 
 # Konfigurieren des Loggings auf INFO-Ebene
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.WARNING)
 # Einrichten des Loggers für dieses Skript
 logger = logging.getLogger(__name__)
 
@@ -24,7 +24,7 @@ def make_parser():
     parser = argparse.ArgumentParser()
 
     # Befehlszeilenargumente hinzufügen
-    parser.add_argument('--source', default='0', help="Kameraquelle: '0' für Webcam, 'basler' für Basler-Kamera")
+    parser.add_argument('--source', default='basler', help="Kameraquelle: '0' für Webcam, 'basler' für Basler-Kamera")
     parser.add_argument('--speed', type=int, default=20, help="Umdrehungsgeschwindigkeit des Drehtellers in U/min")
     parser.add_argument('--num_images_to_save', type=int, default=3, help="Anzahl der zu speichernden Bilder pro Umdrehung")
     parser.add_argument('--part_number', type=str, default='XXXXX', help="Artikelbezeichnung des Bauteils")
@@ -41,15 +41,15 @@ def main():
     logger.info(f' Befehlszeilenargumente: {opt}')
 
     # App initialisieren und starten
-    app = App(opt.source,               # Kameraquelle
+    gui = App(opt.source,               # Kameraquelle
               opt.speed,                # Umdrehungsgeschwindigkeit des Drehtellers in U/min
               opt.num_images_to_save,   # Anzahl der zu speichernden Bilder
               opt.part_number)          # Teilenummer
     # App ausführen
-    app.run()
+    gui.run()
 
     # App beenden und Ressourcen freigeben
-    app.close()
+    gui.close()
 
 
 
