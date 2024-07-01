@@ -141,7 +141,7 @@ class BaslerCamera:
         self.cam.UserSetLoad.Execute()
         # Kameraeinstellungen konfigurieren (z.B. Auflösung, Belichtungszeit usw.)
         self.cam.PixelFormat.Value = "BGR8"
-        self.cam.ExposureTime.Value = 500  # Belichtungszeit (in Mikrosekunden)
+        self.cam.ExposureTime.Value = 1000  # Belichtungszeit (in Mikrosekunden)
         self.cam.LightSourcePreset.Value = "Off" # RGB Balance Ausgleich
         # FPS setzen
         self.cam.AcquisitionFrameRateEnable.SetValue(True)
@@ -149,7 +149,8 @@ class BaslerCamera:
         # self.cam.ExposureTime = self.cam.ExposureTime.Min
         self.cam.Width.Value = self.cam.Width.Max  # 1280
         #self.cam.Height.Value = self.cam.Height.Max  # 1024
-        self.cam.Height.Value = 960 # 960
+        #self.cam.Width.Value = 640
+        self.cam.Height.Value = 960 
         # x/y Zentrum setzen
         self.cam.CenterX.SetValue(True)
         self.cam.CenterY.SetValue(True)
@@ -157,6 +158,7 @@ class BaslerCamera:
         self.logger.info(f'FPS: {self.cam.ResultingFrameRate.Value}')
         # leeres Bild erstellen
         self.image = np.zeros((self.cam.Height.Value, self.cam.Width.Value, 3), dtype=np.uint16)
+        self.frame = np.zeros((480, 640, 3), dtype=np.uint16)
 
 
     def start_grabbing(self):
@@ -174,6 +176,8 @@ class BaslerCamera:
         grab_result = self.cam.RetrieveResult(5000, py.TimeoutHandling_ThrowException)
         if grab_result.GrabSucceeded():
             self.image = grab_result.Array
+            # Bildgröße für Ausgabe anpassen
+            self.frame = self.resize_image(self.image)
             grab_result.Release()
 
 
@@ -183,13 +187,14 @@ class BaslerCamera:
         """
         self.cam.StopGrabbing()
         self.cam.Close()
+      
 
-
-    def get_image(self):
+    def resize_image(self, image):
         """
-        Gibt das aktuelle Kamerabild zurück.
+        Verändert die Größe vom Bild.
         """
-        current_frame = cv2.resize(self.image, (800, 640))
-        print(current_frame)
+        #current_image = image.copy()
+        current_frame = cv2.resize(image, (640, 480))
+        #print(current_frame)
         return current_frame
 

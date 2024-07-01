@@ -20,7 +20,7 @@ from .settings import *
 
 
 class App:
-    def __init__(self, source, speed, num_images_to_save, part_number):
+    def __init__(self, source, speed, num_images_to_save, part_number, debug):
         # Logging
         self.logger = logging.getLogger(__name__)
         #self.logger.setLevel(level=logging.INFO)
@@ -32,12 +32,17 @@ class App:
         # GPIO
         self.gpio_controller = GPIOController()
 
+        # Simulieren und Debuggen
+        self.debugging = debug
+
         # App
-        self.window_name = "UI mit OpenCV"
+        self.window_name = "AI - Fotobox"
         # Fensternamen zuweisen
         cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL)
-        #cv2.setWindowProperty(self.window_name, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
-        cv2.setWindowProperty(self.window_name, cv2.WND_PROP_AUTOSIZE, cv2.WND_PROP_AUTOSIZE)
+        if self.debugging:
+            cv2.setWindowProperty(self.window_name, cv2.WND_PROP_AUTOSIZE, cv2.WND_PROP_AUTOSIZE)
+        else:
+            cv2.setWindowProperty(self.window_name, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
         self.logger.debug(cv2.getWindowProperty(self.window_name, cv2.WND_PROP_FULLSCREEN))
         # Callback für Mausereignisse registrieren
         cv2.setMouseCallback(self.window_name, self.mouse_callback)
@@ -72,7 +77,7 @@ class App:
     # Callback-Funktion für Mausereignisse
     def mouse_callback(self, event, x, y, flags, param):
         if event == cv2.EVENT_LBUTTONDOWN:
-            if x > self.cam.image.shape[1]:  # width
+            if x > self.cam.frame.shape[1]:  # width
                 if y > 60: # Text Bauteilzustand
                     # IO Button
                     if y < 200:
@@ -98,9 +103,9 @@ class App:
         # Auflösung RPI Touch Bildschirm 800 x 480 Pixel, d.h. bei Standardbild von Kamera (640x480) fehlen 160 Pixel in der Breite
         add_width = 160
         # Aktuellen Frame von der Kamera holen
-        image = np.ones((self.cam.image.shape[0], self.cam.image.shape[1] + add_width, 3), dtype=np.uint8) * 255 # height, width, channels
+        image = np.ones((self.cam.frame.shape[0], self.cam.frame.shape[1] + add_width, 3), dtype=np.uint8) * 255 # height, width, channels
         # Kamerabild einfügen
-        image[0:self.cam.image.shape[0], 0:self.cam.image.shape[1]] = self.cam.image
+        image[0:self.cam.frame.shape[0], 0:self.cam.frame.shape[1]] = self.cam.frame
 
         # Farben für die Buttons definieren
         io_color = (0, 255, 0)  # Grün
@@ -121,20 +126,20 @@ class App:
         y2 = 200
         y3 = 340
 
-        cv2.rectangle(image, (self.cam.image.shape[1], 0),
-                    (self.cam.image.shape[1] + add_width, y1), (255,0,0), -1)
-        cv2.putText(image, 'Bauteil ist: ', (self.cam.image.shape[1] + 10, 35), cv2.FONT_HERSHEY_SIMPLEX, .75, (0, 0, 0), 2)
-        cv2.rectangle(image, (self.cam.image.shape[1], y1),
-                    (self.cam.image.shape[1] + add_width, y2), io_color, -1)
-        cv2.rectangle(image, (self.cam.image.shape[1], y2),
-                    (self.cam.image.shape[1] + add_width, y3), nio_color, -1)
-        cv2.rectangle(image, (self.cam.image.shape[1], y3),
-                    (self.cam.image.shape[1] + add_width, self.cam.image.shape[0]), run_color, -1)
+        cv2.rectangle(image, (self.cam.frame.shape[1], 0),
+                    (self.cam.frame.shape[1] + add_width, y1), (255,0,0), -1)
+        cv2.putText(image, 'Bauteil ist: ', (self.cam.frame.shape[1] + 10, 35), cv2.FONT_HERSHEY_SIMPLEX, .75, (0, 0, 0), 2)
+        cv2.rectangle(image, (self.cam.frame.shape[1], y1),
+                    (self.cam.frame.shape[1] + add_width, y2), io_color, -1)
+        cv2.rectangle(image, (self.cam.frame.shape[1], y2),
+                    (self.cam.frame.shape[1] + add_width, y3), nio_color, -1)
+        cv2.rectangle(image, (self.cam.frame.shape[1], y3),
+                    (self.cam.frame.shape[1] + add_width, self.cam.frame.shape[0]), run_color, -1)
 
         # Text für die Buttons hinzufügen
-        cv2.putText(image, 'IO', (self.cam.image.shape[1] + 20, y2 - 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2)
-        cv2.putText(image, 'NIO', (self.cam.image.shape[1] + 20, y3 - 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
-        cv2.putText(image, 'Save', (self.cam.image.shape[1] + 20, self.cam.image.shape[0] - 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2)
+        cv2.putText(image, 'IO', (self.cam.frame.shape[1] + 20, y2 - 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2)
+        cv2.putText(image, 'NIO', (self.cam.frame.shape[1] + 20, y3 - 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+        cv2.putText(image, 'Save', (self.cam.frame.shape[1] + 20, self.cam.frame.shape[0] - 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2)
 
 
         # Speichern des Bildes, wenn der "Run"-Button gedrückt wird
@@ -142,8 +147,8 @@ class App:
             # Text für Benutzer
             text = 'saving'
             text_size = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 5, 5)[0]
-            text_x = (self.cam.image.shape[1] - text_size[0]) // 2
-            text_y = (self.cam.image.shape[0] + text_size[1]) // 2
+            text_x = (self.cam.frame.shape[1] - text_size[0]) // 2
+            text_y = (self.cam.frame.shape[0] + text_size[1]) // 2
             cv2.putText(image, text, (text_x, text_y), cv2.FONT_HERSHEY_SIMPLEX, 5, (0, 255, 0), 3)
 
             #GPIO
@@ -172,11 +177,13 @@ class App:
                 self.img_counter -= 1
                 if self.img_counter <= 0:
                     self.save_img = False
-                    # Simulieren und Testen der Software
-                    time.sleep(5)
-                    self.save_img = True
-                    self.img_counter = self.num_images_to_save
-                    self.logger.info(" Prozess simuliert: Save Button wurde gedrueckt.")
+                    # Debugging Merker gesetzt
+                    if self.debugging:
+                        # Simulieren und Testen der Software
+                        time.sleep(5)
+                        self.save_img = True
+                        self.img_counter = self.num_images_to_save
+                        self.logger.info(" Prozess simuliert: Save Button wurde gedrueckt.")
 
             else:
                 self.logger.warning(" Kann Bild nicht speichern, da es leer ist.")

@@ -28,6 +28,7 @@ def make_parser():
     parser.add_argument('--speed', type=int, default=20, help="Umdrehungsgeschwindigkeit des Drehtellers in U/min")
     parser.add_argument('--num_images_to_save', type=int, default=3, help="Anzahl der zu speichernden Bilder pro Umdrehung")
     parser.add_argument('--part_number', type=str, default='XXXXX', help="Artikelbezeichnung des Bauteils")
+    parser.add_argument('--debug', type=bool, default=False, help="Simulieren des Ablaufs und Testmodus aktivieren")
 
     return parser
 
@@ -44,7 +45,8 @@ def main():
     gui = App(opt.source,               # Kameraquelle
               opt.speed,                # Umdrehungsgeschwindigkeit des Drehtellers in U/min
               opt.num_images_to_save,   # Anzahl der zu speichernden Bilder
-              opt.part_number)          # Teilenummer
+              opt.part_number,          # Teilenummer
+              opt.debug)                # Testmodus
     # App ausführen
     gui.run()
 
