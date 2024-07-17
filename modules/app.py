@@ -47,6 +47,9 @@ class App:
         # Callback für Mausereignisse registrieren
         cv2.setMouseCallback(self.window_name, self.mouse_callback)
 
+        # Merker für Programm beenden
+        self.quit = False
+
         # Parameter zum Speichern der Bilder
         self.io_state = False
         self.save_img = False
@@ -78,7 +81,11 @@ class App:
     def mouse_callback(self, event, x, y, flags, param):
         if event == cv2.EVENT_LBUTTONDOWN:
             if x > self.cam.frame.shape[1]:  # width
-                if y > 60: # Text Bauteilzustand
+                if y < 60: 
+                    # EXIT Button
+                    self.quit = True
+                    self.logger.info(" Exit Button wurde gedrueckt - Programm beenden")
+                else:    
                     # IO Button
                     if y < 200:
                         self.io_state = True
@@ -110,7 +117,7 @@ class App:
         # Farben für die Buttons definieren
         io_color = (0, 255, 0)  # Grün
         nio_color = (0, 0, 255)  # Rot
-        run_color = (0, 255, 255)  # Gelb
+        run_color = (255, 0, 0)  # Blau
 
         # Farben je nach Zustand der Buttons anpassen
         if self.io_state:
@@ -126,9 +133,9 @@ class App:
         y2 = 200
         y3 = 340
 
+        # Farben für die Buttons
         cv2.rectangle(image, (self.cam.frame.shape[1], 0),
-                    (self.cam.frame.shape[1] + add_width, y1), (255,0,0), -1)
-        cv2.putText(image, 'Bauteil ist: ', (self.cam.frame.shape[1] + 10, 35), cv2.FONT_HERSHEY_SIMPLEX, .75, (0, 0, 0), 2)
+                    (self.cam.frame.shape[1] + add_width, y1), (0, 255, 255), -1)
         cv2.rectangle(image, (self.cam.frame.shape[1], y1),
                     (self.cam.frame.shape[1] + add_width, y2), io_color, -1)
         cv2.rectangle(image, (self.cam.frame.shape[1], y2),
@@ -137,9 +144,10 @@ class App:
                     (self.cam.frame.shape[1] + add_width, self.cam.frame.shape[0]), run_color, -1)
 
         # Text für die Buttons hinzufügen
+        cv2.putText(image, 'EXIT', (self.cam.frame.shape[1] + 20, 35), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2)
         cv2.putText(image, 'IO', (self.cam.frame.shape[1] + 20, y2 - 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2)
         cv2.putText(image, 'NIO', (self.cam.frame.shape[1] + 20, y3 - 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
-        cv2.putText(image, 'Save', (self.cam.frame.shape[1] + 20, self.cam.frame.shape[0] - 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2)
+        cv2.putText(image, 'RUN', (self.cam.frame.shape[1] + 20, self.cam.frame.shape[0] - 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
 
 
         # Speichern des Bildes, wenn der "Run"-Button gedrückt wird
@@ -216,6 +224,10 @@ class App:
                 break
             # Option hinzu, um Fenster am Touchbildschirm ohne Tastatur zu schließen
             if cv2.getWindowProperty(self.window_name, cv2.WND_PROP_VISIBLE) < 1:
+                break
+            # Exit Button
+            if self.quit:
+                self.quit = False # Merker zurücksetzen
                 break
 
         # Kamera freigeben und alle Fenster schließen
