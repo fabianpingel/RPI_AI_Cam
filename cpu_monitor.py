@@ -1,16 +1,44 @@
+"""
+Script zum Aufnehmen von CPU Temperatur und Frequenz
+F.Pingel, 16.08.2024
+"""
+
 import os
 import time
+import logging
+import argparse
 import datetime
+
+# Konfigurieren des Loggings auf INFO-Ebene
+logging.basicConfig(level=logging.WARNING)
+# Einrichten des Loggers für dieses Skript
+logger = logging.getLogger(__name__)
+
+
+def make_parser():
+    """
+    Erstellt einen Argument-Parser für die Befehlszeilenargumente.
+    """
+
+    # Parser erstellen
+    parser = argparse.ArgumentParser()
+
+    # Befehlszeilenargumente hinzufügen
+    parser.add_argument('--interval', type=int, default=60, help="Intervall zum Speichern der Daten")
+    return parser
+
 
 def get_cpu_temp():
     """Liest die CPU-Temperatur aus."""
     temp = os.popen("vcgencmd measure_temp").readline()
     return float(temp.replace("temp=", "").replace("'C\n", ""))
 
+
 def get_cpu_freq():
     """Liest die CPU-Taktfrequenz aus."""
     freq = os.popen("vcgencmd measure_clock arm").readline()
     return int(freq.replace("frequency(48)=", "").strip())
+
 
 def log_data(filename, interval=60):
     """Protokolliert die CPU-Temperatur und -Taktfrequenz in eine Datei."""
@@ -31,5 +59,22 @@ def log_data(filename, interval=60):
             # Warte das definierte Intervall
             time.sleep(interval)
 
+
+def main():
+    # Befehlszeilenargumente parsen
+    opt = make_parser().parse_args()
+
+    # Informationen über die Befehlszeilenargumente protokollieren
+    logger.info(f' Befehlszeilenargumente: {opt}')
+
+    # Zeitstempel für Dateinamen holen
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H%M%S")
+
+    # Monitoring starten
+    log_data(f"cpu_log_{timestamp}.txt", 
+             opt.interval)  
+
+
+
 if __name__ == "__main__":
-    log_data("cpu_log.txt", interval=60)  # Intervall auf 60 Sekunden setzen
+    main()
