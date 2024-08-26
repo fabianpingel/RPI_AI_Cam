@@ -3,6 +3,7 @@ import cv2                      # OpenCV für Bildverarbeitung
 import numpy as np              # NumPy für numerische Operationen mit Bildern
 import pypylon.pylon as py      # pypylon für die Ansteuerung von Basler-Kameras
 import logging                  # logging für das Protokollieren von Nachrichten
+import time
 
 
 
@@ -148,7 +149,7 @@ class BaslerCamera:
         self.cam.LightSourcePreset.Value = "Off" # RGB Balance Ausgleich
         # FPS setzen
         self.cam.AcquisitionFrameRateEnable.SetValue(True)
-        self.cam.AcquisitionFrameRate.Value = 30
+        self.cam.AcquisitionFrameRate.Value = 24 # 30
         # self.cam.ExposureTime = self.cam.ExposureTime.Min
         self.cam.Width.Value = self.cam.Width.Max  # 1280
         #self.cam.Height.Value = self.cam.Height.Max  # 1024
@@ -202,3 +203,36 @@ class BaslerCamera:
         #print(current_frame)
         return current_frame
 
+
+def monitor_temperature(self, max_temp=81.0, cooldown_temp=75.0):
+        """
+        Überwacht die Kameratemperatur und versetzt die Kamera in den Standby-Modus,
+        wenn die Temperatur einen bestimmten Grenzwert überschreitet.
+
+        Args:
+            max_temp (float): Maximale erlaubte Temperatur der Kamera.
+            cooldown_temp (float): Temperatur, auf die die Kamera abkühlen muss, bevor der Betrieb wieder aufgenommen wird.
+        """
+        while True:
+            try:
+                current_temp = self.cam.DeviceTemperature.Value
+                if current_temp > max_temp:
+                    self.logger.warning(f"Kameratemperatur {current_temp}°C überschreitet den Grenzwert von {max_temp}°C. Standby-Modus aktivieren.")
+                    # Kamera in Standby-Modus versetzen
+                    self.stop_grabbing()
+                    self.logger.info("Kamera ist im Standby-Modus.")
+
+                    # Warte, bis die Temperatur abkühlt
+                    while self.cam.DeviceTemperature.Value > cooldown_temp:
+                        self.logger.info(f"Kameratemperatur: {self.cam.DeviceTemperature.Value}°C. Warten auf Abkühlung auf {cooldown_temp}°C...")
+                        time.sleep(10)  # Wartezeit vor der erneuten Überprüfung
+
+                    self.logger.info(f"Kameratemperatur hat {cooldown_temp}°C erreicht. Fortsetzung des Betriebs.")
+                    # Kamera wieder aktivieren
+                    self.start_grabbing()
+                else:
+                    self.logger.info(f"Kameratemperatur: {current_temp}°C - im sicheren Bereich.")
+            except Exception as e:
+                self.logger.error(f"Fehler bei der Überwachung der Temperatur: {e}")
+            # Wartezeit zwischen den Temperaturüberprüfungen
+            time.sleep(60)

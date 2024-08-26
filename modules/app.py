@@ -10,7 +10,7 @@ import os                       # os für Betriebssystemoperationen wie das Erst
 import time                     # time für die Zeitmessung
 import datetime                 # datetime für die Arbeit mit Datum und Uhrzeit
 import logging                  # logging für das Protokollieren von Nachrichten
-
+import threading                # threading für die Arbeit mit Threads
 
 from .camera import Webcam, BaslerCamera
 from .utils import ImageSaver
@@ -64,6 +64,10 @@ class App:
 
         # Thread zum Speichern der Bilder
         self.image_saver = ImageSaver(self)
+
+        # Temperaturüberwachung in einem eigenen Thread
+        self.temp_thread = threading.Thread(target=self.cam.monitor_temperature, args=(81.0, 75.0))
+        self.temp_thread.daemon = True  # Thread als Daemon-Thread markieren (beendet sich automatisch mit dem Hauptprogramm)
 
         # Ordner für Bilder erstellen
         self.part_number = part_number
@@ -162,19 +166,22 @@ class App:
         if self.error or d > CAM_T_MAX:
             # Text für Benutzer
             text_1 = 'Kameratemperatur'
-            text_2 = f'{d} Grad. Pause...'
+            text_2 = f'{d} Grad. Standby...'
             text_size = cv2.getTextSize(text_1, cv2.FONT_HERSHEY_SIMPLEX, 2, 2)[0]
             text_x = (self.cam.frame.shape[1] - text_size[0]) // 2
             #text_y = (self.cam.frame.shape[0] + text_size[1]) // 2
             cv2.putText(image, text_1, (text_x, 220), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 255), 3)
             cv2.putText(image, text_2, (text_x, 280), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 255), 3)
+
             # Merker, für 'Bild speichern' zurücknehmen
             self.save_img = False
+
             # Merker für Fehlermeldung
             self.error = True
-            # Leuchte ausschalten
-            # Setze Pin Leuchte auf LOW
-            self.gpio_controller.write_pin(GPIO_PIN_LEUCHTE, False)
+
+            # Standbymodus aktivieren
+            self.standby_mode()
+            
             # Warten, bis Kameratemperatur abgekühlt
             if self.cam.cam.DeviceTemperature.Value < (CAM_T_MAX - CAM_T_DELTA):
                 self.error = False
@@ -203,6 +210,7 @@ class App:
         # UI mit Livebild und Buttons anzeigen
         cv2.imshow(self.window_name, image)
 
+    # Funktion wird in einem eigenen Thread aufgerufen!
     def save_image(self):
         if self.save_img:  # Überprüfen, ob das Speichern von Bildern aktiviert ist
             if self.cam.image is not None:  # Überprüfen, ob das Bild existiert
@@ -232,10 +240,20 @@ class App:
                 self.logger.warning(" Kann Bild nicht speichern, da es leer ist.")
 
 
+    def standby_mode(self):
+        self.logger.info(" Kamera- und Leuchtenstandby aktiviert aufgrund hoher Temperatur.")
+        self.cam.stop_grabbing()  # Stoppe das Erfassen von Frames
+        # Setze Pin Leuchte auf LOW
+        self.gpio_controller.write_pin(GPIO_PIN_LEUCHTE, False)  # Leuchte ausschalten
+
+
     def run(self):
         # Kamera initialisieren
         self.cam.initialize()
         self.cam.start_grabbing()
+
+        # Starte den Temperaturüberwachungs-Thread 
+        self.temp_thread.start()
 
         # Starte den Bildspeicher-Thread
         self.image_saver.start()
