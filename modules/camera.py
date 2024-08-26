@@ -139,6 +139,9 @@ class BaslerCamera:
         # reset to power on defaults
         self.cam.UserSetSelector.SetValue(self.cam.UserSetDefault.Value)
         self.cam.UserSetLoad.Execute()
+        # Kameratemperatur
+        d = self.cam.DeviceTemperature.Value
+        print(d)
         # Kameraeinstellungen konfigurieren (z.B. Auflösung, Belichtungszeit usw.)
         self.cam.PixelFormat.Value = "BGR8"
         self.cam.ExposureTime.Value = 1000  # Belichtungszeit (in Mikrosekunden)
@@ -159,6 +162,7 @@ class BaslerCamera:
         # leeres Bild erstellen
         self.image = np.zeros((self.cam.Height.Value, self.cam.Width.Value, 3), dtype=np.uint16)
         self.frame = np.zeros((480, 640, 3), dtype=np.uint16)
+        #
 
 
     def start_grabbing(self):

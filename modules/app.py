@@ -69,6 +69,9 @@ class App:
         self.part_number = part_number
         self.create_folder(self.part_number)
 
+        # Fehlermeldung
+        self.error = False
+
 
     def create_folder(self, part_number):
         self.folder_name = 'images_' + str(part_number) + '_' + time.strftime('%Y-%m-%d')
@@ -126,6 +129,10 @@ class App:
         if not self.io_state:
             io_color = (128, 128, 128)  # Grau für IO Button
             nio_color = (0, 0, 200)  # Dunkleres Rot
+
+        # Beim Fehler Buttons ausgrauen
+        if self.error:
+            io_color, nio_color, run_color = (128, 128, 128), (128, 128, 128), (128, 128, 128)
        
         # Buttons zeichnen
         # Konstanten für vertikale Bildunterteilung (y-Koordinate = Bildhöhe max 480 pixel)
@@ -142,13 +149,38 @@ class App:
                     (self.cam.frame.shape[1] + add_width, y3), nio_color, -1)
         cv2.rectangle(image, (self.cam.frame.shape[1], y3),
                     (self.cam.frame.shape[1] + add_width, self.cam.frame.shape[0]), run_color, -1)
-
+        
         # Text für die Buttons hinzufügen
         cv2.putText(image, 'EXIT', (self.cam.frame.shape[1] + 20, 35), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2)
         cv2.putText(image, 'IO', (self.cam.frame.shape[1] + 20, y2 - 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2)
         cv2.putText(image, 'NIO', (self.cam.frame.shape[1] + 20, y3 - 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
         cv2.putText(image, 'RUN', (self.cam.frame.shape[1] + 20, self.cam.frame.shape[0] - 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
 
+
+        # Warnmeldung, wenn Kameratemperatur zu hoch
+        d = self.cam.cam.DeviceTemperature.Value
+        if self.error or d > CAM_T_MAX:
+            # Text für Benutzer
+            text_1 = 'Kameratemperatur'
+            text_2 = f'{d} Grad. Pause...'
+            text_size = cv2.getTextSize(text_1, cv2.FONT_HERSHEY_SIMPLEX, 2, 2)[0]
+            text_x = (self.cam.frame.shape[1] - text_size[0]) // 2
+            #text_y = (self.cam.frame.shape[0] + text_size[1]) // 2
+            cv2.putText(image, text_1, (text_x, 220), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 255), 3)
+            cv2.putText(image, text_2, (text_x, 280), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 255), 3)
+            # Merker, für 'Bild speichern' zurücknehmen
+            self.save_img = False
+            # Merker für Fehlermeldung
+            self.error = True
+            # Leuchte ausschalten
+            # Setze Pin Leuchte auf LOW
+            self.gpio_controller.write_pin(GPIO_PIN_LEUCHTE, False)
+            # Warten, bis Kameratemperatur abgekühlt
+            if self.cam.cam.DeviceTemperature.Value < (CAM_T_MAX - CAM_T_DELTA):
+                self.error = False
+                # Setze Pin Leuchte auf HIGH
+                self.gpio_controller.write_pin(GPIO_PIN_LEUCHTE, True)
+        
 
         # Speichern des Bildes, wenn der "Run"-Button gedrückt wird
         if self.save_img:
@@ -188,10 +220,13 @@ class App:
                     # Debugging Merker gesetzt
                     if self.debugging:
                         # Simulieren und Testen der Software
-                        time.sleep(5)
+                        time.sleep(2) # 5
                         self.save_img = True
                         self.img_counter = self.num_images_to_save
                         self.logger.info(" Prozess simuliert: Save Button wurde gedrueckt.")
+                        # Hack Kamera-Temperatur
+                        d = self.cam.cam.DeviceTemperature.Value
+                        print(f'Kameratemperatur: {d}')
 
             else:
                 self.logger.warning(" Kann Bild nicht speichern, da es leer ist.")
@@ -210,6 +245,7 @@ class App:
         self.gpio_controller.setup_pin(GPIO_PIN_MOTOR, 'output')
         # Konfiguriere Pin Leuchte als Output --> für Leuchte
         self.gpio_controller.setup_pin(GPIO_PIN_LEUCHTE, 'output')
+
         # Setze Pin Leuchte auf HIGH
         self.gpio_controller.write_pin(GPIO_PIN_LEUCHTE, True)
 
