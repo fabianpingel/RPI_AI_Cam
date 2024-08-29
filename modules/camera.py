@@ -145,12 +145,13 @@ class BaslerCamera:
         print(d)
         # Kameraeinstellungen konfigurieren (z.B. Auflösung, Belichtungszeit usw.)
         self.cam.PixelFormat.Value = "BGR8"
-        self.cam.ExposureTime.Value = 1000  # Belichtungszeit (in Mikrosekunden)
+        self.cam.ExposureTime.Value = 2000  # Belichtungszeit (in Mikrosekunden)
         self.cam.LightSourcePreset.Value = "Off" # RGB Balance Ausgleich
         # FPS setzen
         self.cam.AcquisitionFrameRateEnable.SetValue(True)
         self.cam.AcquisitionFrameRate.Value = 24 # 30
         # self.cam.ExposureTime = self.cam.ExposureTime.Min
+        # Bildanzeige 640x380 --> daher 1280 als Breite und 460 als Höhe gewählt
         self.cam.Width.Value = self.cam.Width.Max  # 1280
         #self.cam.Height.Value = self.cam.Height.Max  # 1024
         #self.cam.Width.Value = 640
@@ -163,15 +164,17 @@ class BaslerCamera:
         # leeres Bild erstellen
         self.image = np.zeros((self.cam.Height.Value, self.cam.Width.Value, 3), dtype=np.uint16)
         self.frame = np.zeros((480, 640, 3), dtype=np.uint16)
-        #
+        # Kamerafehler
+        self.cam_error = False
 
 
     def start_grabbing(self):
         """
         Startet den Kamerastream.
         """
-        # self.cam.StartGrabbing() # hierbei bleiben Bilder im Puffer
-        self.cam.StartGrabbing(py.GrabStrategy_LatestImageOnly)
+        if not self.cam.IsGrabbing():
+            # self.cam.StartGrabbing() # hierbei bleiben Bilder im Puffer
+            self.cam.StartGrabbing(py.GrabStrategy_LatestImageOnly)
 
 
     def grab_frame(self):
@@ -184,6 +187,7 @@ class BaslerCamera:
             # Bildgröße für Ausgabe anpassen
             self.frame = self.resize_image(self.image)
             grab_result.Release()
+
 
 
     def release(self):
@@ -204,35 +208,38 @@ class BaslerCamera:
         return current_frame
 
 
-def monitor_temperature(self, max_temp=81.0, cooldown_temp=75.0):
-        """
-        Überwacht die Kameratemperatur und versetzt die Kamera in den Standby-Modus,
-        wenn die Temperatur einen bestimmten Grenzwert überschreitet.
+    def monitor_temperature(self, max_temp=80.0, cooldown_temp=77.0):
+            """
+            Überwacht die Kameratemperatur und versetzt die Kamera in den Standby-Modus,
+            wenn die Temperatur einen bestimmten Grenzwert überschreitet.
 
-        Args:
-            max_temp (float): Maximale erlaubte Temperatur der Kamera.
-            cooldown_temp (float): Temperatur, auf die die Kamera abkühlen muss, bevor der Betrieb wieder aufgenommen wird.
-        """
-        while True:
-            try:
-                current_temp = self.cam.DeviceTemperature.Value
-                if current_temp > max_temp:
-                    self.logger.warning(f"Kameratemperatur {current_temp}°C überschreitet den Grenzwert von {max_temp}°C. Standby-Modus aktivieren.")
-                    # Kamera in Standby-Modus versetzen
-                    self.stop_grabbing()
-                    self.logger.info("Kamera ist im Standby-Modus.")
+            Args:
+                max_temp (float): Maximale erlaubte Temperatur der Kamera.
+                cooldown_temp (float): Temperatur, auf die die Kamera abkühlen muss, bevor der Betrieb wieder aufgenommen wird.
+            """
+            while True:
+                try:
+                    current_temp = self.cam.DeviceTemperature.Value
+                    if current_temp > max_temp:
+                        self.logger.warning(f"Kameratemperatur {current_temp} Grad ueberschreitet den Grenzwert von {max_temp} Grad. Standby-Modus aktivieren.")
+                        self.cam_error = True
+                        # Kamera in Standby-Modus versetzen
+                        self.cam.StopGrabbing()
+                        self.logger.info("Kamera ist im Standby-Modus.")
 
-                    # Warte, bis die Temperatur abkühlt
-                    while self.cam.DeviceTemperature.Value > cooldown_temp:
-                        self.logger.info(f"Kameratemperatur: {self.cam.DeviceTemperature.Value}°C. Warten auf Abkühlung auf {cooldown_temp}°C...")
-                        time.sleep(10)  # Wartezeit vor der erneuten Überprüfung
+                        # Warte, bis die Temperatur abkühlt
+                        while self.cam.DeviceTemperature.Value > cooldown_temp:
+                            self.logger.info(f"Kameratemperatur: {self.cam.DeviceTemperature.Value} Grad. Warten auf Abkuehlung auf {cooldown_temp} Grad...")
+                            time.sleep(60)  # Wartezeit vor der erneuten Überprüfung
 
-                    self.logger.info(f"Kameratemperatur hat {cooldown_temp}°C erreicht. Fortsetzung des Betriebs.")
-                    # Kamera wieder aktivieren
-                    self.start_grabbing()
-                else:
-                    self.logger.info(f"Kameratemperatur: {current_temp}°C - im sicheren Bereich.")
-            except Exception as e:
-                self.logger.error(f"Fehler bei der Überwachung der Temperatur: {e}")
-            # Wartezeit zwischen den Temperaturüberprüfungen
-            time.sleep(60)
+                        self.logger.info(f"Kameratemperatur hat {cooldown_temp} Grad erreicht. Fortsetzung des Betriebs.")
+                        # Kamera wieder aktivieren
+                        self.start_grabbing()
+                        time.sleep(1)  # Wartezeit
+                        self.cam_error = False
+                    else:
+                        self.logger.info(f"Kameratemperatur: {current_temp} Grad - im sicheren Bereich.")
+                except Exception as e:
+                    self.logger.error(f"Fehler bei der Ueberwachung der Temperatur: {e}")
+                # Wartezeit zwischen den Temperaturüberprüfungen
+                time.sleep(60)
