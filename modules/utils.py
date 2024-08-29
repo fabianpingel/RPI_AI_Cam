@@ -5,6 +5,7 @@ F.Pingel, 18.03.2024
 import threading                # threading für die Arbeit mit Threads
 
 
+
 class ImageSaver(threading.Thread):
     """Klasse, die Bilder in einem eigenen Thread speichert."""
 

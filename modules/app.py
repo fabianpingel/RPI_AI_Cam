@@ -151,6 +151,7 @@ class App:
         y2 = 200
         y3 = 340
 
+
         # Farben für die Buttons
         cv2.rectangle(image, (self.cam.frame.shape[1], 0),
                     (self.cam.frame.shape[1] + add_width, y1), (0, 255, 255), -1)

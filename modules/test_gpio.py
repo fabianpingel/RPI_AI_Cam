@@ -16,6 +16,7 @@ debug_motor = False
 debug_motor_and_light = True
 duration = 60 # Zeit in Sekunden für Tests
 
+
 # Tests für Leuchte
 if debug_light:
     # Konfiguriere Pin Leuchte als Output --> für Leuchte

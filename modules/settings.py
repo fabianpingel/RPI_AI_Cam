@@ -9,3 +9,4 @@ CAM_T_DELTA = 2 # 2°C Grad Abkühlung
 # Standby Wartezeit
 STANDBY = 300 # 300
 
+

@@ -15,6 +15,7 @@ logging.basicConfig(level=logging.WARNING)
 logger = logging.getLogger(__name__)
 
 
+
 def make_parser():
     """
     Erstellt einen Argument-Parser für die Befehlszeilenargumente.

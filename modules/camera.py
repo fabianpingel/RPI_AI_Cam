@@ -189,6 +189,7 @@ class BaslerCamera:
             grab_result.Release()
 
 
+
     def release(self):
         """
         Stoppt den Kamerastream und gibt Ressourcen frei.
