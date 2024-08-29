@@ -71,7 +71,7 @@ def main():
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H%M%S")
 
     # Monitoring starten
-    log_data(f"cpu_log_{timestamp}.txt", 
+    log_data(f"./logs/cpu_log_{timestamp}.txt", 
              opt.interval)  
 
 
