@@ -55,7 +55,7 @@ class App:
         self.save_img = False
 
         # Zeitstempel für die letzte Bildspeicherung
-        self.last_save_time = time.time()
+        self.timestamp = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S-%f')[:-3]  # Zeitstempel mit Mikrosekunden
         self.speed = speed
         self.num_images_to_save = num_images_to_save
         self.img_counter = 0
@@ -66,15 +66,16 @@ class App:
         self.image_saver = ImageSaver(self)
 
         # Temperaturüberwachung in einem eigenen Thread
-        self.temp_thread = threading.Thread(target=self.cam.monitor_temperature, args=(81.0, 75.0))
+        self.temp_thread = threading.Thread(target=self.cam.monitor_temperature, args=(CAM_T_MAX, (CAM_T_MAX - CAM_T_DELTA))) # 81, 75
         self.temp_thread.daemon = True  # Thread als Daemon-Thread markieren (beendet sich automatisch mit dem Hauptprogramm)
 
         # Ordner für Bilder erstellen
         self.part_number = part_number
         self.create_folder(self.part_number)
 
-        # Fehlermeldung
-        self.error = False
+        # Standbybetrieb
+        self.standby = False
+        self.last_time_saved = time.time()
 
 
     def create_folder(self, part_number):
@@ -86,7 +87,11 @@ class App:
 
     # Callback-Funktion für Mausereignisse
     def mouse_callback(self, event, x, y, flags, param):
+        # Event abfragen
         if event == cv2.EVENT_LBUTTONDOWN:
+            # Standby zurücksetzen, wenn Bildschirm berührt/geklickt wird
+            self.standby = False
+            self.last_time_saved = time.time()
             if x > self.cam.frame.shape[1]:  # width
                 if y < 60: 
                     # EXIT Button
@@ -104,8 +109,10 @@ class App:
                     # Save Button
                     else:
                         self.save_img = True
+                        self.timestamp = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S-%f')[:-3]  # Zeitstempel mit Mikrosekunden
                         self.img_counter = self.num_images_to_save
                         self.logger.info(" Save Button wurde gedrueckt - Prozess starten")
+                        
 
                 # UI neu zeichnen, um den aktualisierten Zustand des Buttons anzuzeigen
                 self.draw_ui()
@@ -135,7 +142,7 @@ class App:
             nio_color = (0, 0, 200)  # Dunkleres Rot
 
         # Beim Fehler Buttons ausgrauen
-        if self.error:
+        if self.cam.cam_error:
             io_color, nio_color, run_color = (128, 128, 128), (128, 128, 128), (128, 128, 128)
        
         # Buttons zeichnen
@@ -161,33 +168,45 @@ class App:
         cv2.putText(image, 'RUN', (self.cam.frame.shape[1] + 20, self.cam.frame.shape[0] - 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
 
 
-        # Warnmeldung, wenn Kameratemperatur zu hoch
-        d = self.cam.cam.DeviceTemperature.Value
-        if self.error or d > CAM_T_MAX:
+        # Prüfen, ob Kameratemperatur zu hoch
+        if self.cam.cam_error:
+            # Kameratemperatur
+            d = self.cam.cam.DeviceTemperature.Value
             # Text für Benutzer
-            text_1 = 'Kameratemperatur'
-            text_2 = f'{d} Grad. Standby...'
-            text_size = cv2.getTextSize(text_1, cv2.FONT_HERSHEY_SIMPLEX, 2, 2)[0]
+            text_1 = f'Kamera: {int(d)} C. Pause!'
+            #text_2 = f'{d} Grad. Pause...'
+            text_size = cv2.getTextSize(text_1, cv2.FONT_HERSHEY_SIMPLEX, 1.5, 2)[0]
             text_x = (self.cam.frame.shape[1] - text_size[0]) // 2
             #text_y = (self.cam.frame.shape[0] + text_size[1]) // 2
-            cv2.putText(image, text_1, (text_x, 220), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 255), 3)
-            cv2.putText(image, text_2, (text_x, 280), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 255), 3)
+            cv2.putText(image, text_1, (text_x, 420), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 0, 255), 3)
+            #cv2.putText(image, text_2, (text_x, 280), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 255), 3)
 
             # Merker, für 'Bild speichern' zurücknehmen
             self.save_img = False
 
-            # Merker für Fehlermeldung
-            self.error = True
-
-            # Standbymodus aktivieren
-            self.standby_mode()
-            
-            # Warten, bis Kameratemperatur abgekühlt
-            if self.cam.cam.DeviceTemperature.Value < (CAM_T_MAX - CAM_T_DELTA):
-                self.error = False
+            # Setze Pin Leuchte auf LOW
+            self.gpio_controller.write_pin(GPIO_PIN_LEUCHTE, False)  # Leuchte ausschalten
+        else:
+            if not self.standby:
                 # Setze Pin Leuchte auf HIGH
-                self.gpio_controller.write_pin(GPIO_PIN_LEUCHTE, True)
+                self.gpio_controller.write_pin(GPIO_PIN_LEUCHTE, True) # Leuchte einschalten
         
+
+        # Prüfen, ob Kameratemperatur zu hoch
+        if self.standby:
+            # Text für Benutzer
+            text = 'Standby'
+            text_size = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 5, 5)[0]
+            text_x = (self.cam.frame.shape[1] - text_size[0]) // 2
+            text_y = (self.cam.frame.shape[0] + text_size[1]) // 2
+            cv2.putText(image, text, (text_x, text_y), cv2.FONT_HERSHEY_SIMPLEX, 5, (255, 0, 0), 3)
+        else:
+            if not self.cam.cam_error:
+                # Setze Pin Leuchte auf HIGH
+                self.gpio_controller.write_pin(GPIO_PIN_LEUCHTE, True) # Leuchte einschalten
+                # Kamera starten
+                self.cam.start_grabbing()
+  
 
         # Speichern des Bildes, wenn der "Run"-Button gedrückt wird
         if self.save_img:
@@ -198,10 +217,9 @@ class App:
             text_y = (self.cam.frame.shape[0] + text_size[1]) // 2
             cv2.putText(image, text, (text_x, text_y), cv2.FONT_HERSHEY_SIMPLEX, 5, (0, 255, 0), 3)
 
-            #GPIO
             # Setze Pin auf HIGH um Motor zu starten
             self.gpio_controller.write_pin(GPIO_PIN_MOTOR, True)
-            #time.sleep(0.05)
+
 
         # GPIO Ausgang Motor zurücksetzen
         if not self.save_img:
@@ -216,11 +234,13 @@ class App:
             if self.cam.image is not None:  # Überprüfen, ob das Bild existiert
                 prefix = 'IO' if self.io_state else 'NIO'  # IO / NIO Prefix
                 #timestamp = time.strftime('%Y-%m-%d_%H-%M-%S-%f')  # Zeitstempel
-                timestamp = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S-%f')[:-3]  # Zeitstempel mit Mikrosekunden
-                img_name = f'{str(self.part_number)}_{prefix}_{timestamp}_{self.img_counter}.jpg'  # Bildname
+                #timestamp = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S-%f')[:-3]  # Zeitstempel mit Mikrosekunden
+                img_name = f'{str(self.part_number)}_{prefix}_{self.timestamp}_{self.img_counter}.jpg'  # Bildname
                 img_path = os.path.join(self.folder_name, img_name)  # Bildpfad
                 # Bild speichern
-                cv2.imwrite(img_path, self.cam.image)
+                crop_img = self.cam.image[0:960, 160:1120] # Bild auf 960x960 zentrisch zuschneiden
+                cv2.imwrite(img_path, crop_img)
+                #cv2.imwrite(img_path, self.cam.image)
                 self.logger.info(f" Bild gespeichert: {img_path}")
                 self.img_counter -= 1
                 if self.img_counter <= 0:
@@ -233,18 +253,20 @@ class App:
                         self.img_counter = self.num_images_to_save
                         self.logger.info(" Prozess simuliert: Save Button wurde gedrueckt.")
                         # Hack Kamera-Temperatur
-                        d = self.cam.cam.DeviceTemperature.Value
-                        print(f'Kameratemperatur: {d}')
+                        #d = self.cam.cam.DeviceTemperature.Value
+                        #print(f'Kameratemperatur: {d}')
 
             else:
                 self.logger.warning(" Kann Bild nicht speichern, da es leer ist.")
 
 
     def standby_mode(self):
-        self.logger.info(" Kamera- und Leuchtenstandby aktiviert aufgrund hoher Temperatur.")
-        self.cam.stop_grabbing()  # Stoppe das Erfassen von Frames
+        self.logger.info(" Kamera- und Leuchtenstandby aktiviert.")
+        self.cam.cam.StopGrabbing()  # Stoppe das Erfassen von Frames
         # Setze Pin Leuchte auf LOW
         self.gpio_controller.write_pin(GPIO_PIN_LEUCHTE, False)  # Leuchte ausschalten
+        # Merker für Standby
+        self.standby = True
 
 
     def run(self):
@@ -271,7 +293,8 @@ class App:
         while True:
             # while self.cam.IsGrabbing():
             # Frame von der Kamera erfassen
-            self.cam.grab_frame()
+            if not self.standby and not self.cam.cam_error:
+                self.cam.grab_frame()
             self.draw_ui()
             # Taste 'q' drücken, um die Schleife zu beenden
             if cv2.waitKey(1) & 0xFF == ord('q'):
@@ -283,6 +306,10 @@ class App:
             if self.quit:
                 self.quit = False # Merker zurücksetzen
                 break
+            # Standby-Modus
+            if time.time() - self.last_time_saved > STANDBY:
+                 self.standby_mode()
+
 
         # Kamera freigeben und alle Fenster schließen
         self.cam.release()
