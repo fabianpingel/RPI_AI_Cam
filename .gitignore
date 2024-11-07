@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo 
+
+# Virtualenv
+/cam_venv/
+
+# Umgebungsvariablen
+.env
+
+# Visual Studio
+/.vscode/
+
+# Jupyter Notebooks
+*.ipynb_checkpoints
+
+# Log-Dateien
+*.log 
+/logs/
+
+# Zerfifikate
+*.crt 
+
+# Bilder im Stammverzeichnis
+/images*/

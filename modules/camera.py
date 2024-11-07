@@ -145,7 +145,7 @@ class BaslerCamera:
         print(d)
         # Kameraeinstellungen konfigurieren (z.B. Auflösung, Belichtungszeit usw.)
         self.cam.PixelFormat.Value = "BGR8"
-        self.cam.ExposureTime.Value = 2000  # Belichtungszeit (in Mikrosekunden)
+        self.cam.ExposureTime.Value = 7000  # Belichtungszeit (in Mikrosekunden)
         self.cam.LightSourcePreset.Value = "Off" # RGB Balance Ausgleich
         # FPS setzen
         self.cam.AcquisitionFrameRateEnable.SetValue(True)

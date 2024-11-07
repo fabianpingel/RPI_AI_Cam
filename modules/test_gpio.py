@@ -11,10 +11,10 @@ logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
 
 # Boolean
-debug_light = False
+debug_light = True
 debug_motor = False
-debug_motor_and_light = True
-duration = 60 # Zeit in Sekunden für Tests
+debug_motor_and_light = False
+duration = 360 # Zeit in Sekunden für Tests
 
 
 # Tests für Leuchte
