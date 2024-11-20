@@ -236,7 +236,11 @@ class App:
                 prefix = 'IO' if self.io_state else 'NIO'  # IO / NIO Prefix
                 #timestamp = time.strftime('%Y-%m-%d_%H-%M-%S-%f')  # Zeitstempel
                 #timestamp = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S-%f')[:-3]  # Zeitstempel mit Mikrosekunden
+<<<<<<< HEAD
                 img_name = f'{str(self.part_number)}_{prefix}_{self.timestamp}_{self.img_counter}.png'  # Bildname
+=======
+                img_name = f'{str(self.part_number)}_{prefix}_{self.timestamp}_{self.img_counter}.jpg'  # Bildname
+>>>>>>> 12c7eaa5971efd4dbcd0bfef1e3e5a5cd8345405
                 img_path = os.path.join(self.folder_name, img_name)  # Bildpfad
                 # Bild speichern
                 crop_img = self.cam.image[0:960, 160:1120] # Bild auf 960x960 zentrisch zuschneiden
